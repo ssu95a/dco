@@ -9,14 +9,18 @@ import java.nio.charset.Charset;
 import java.util.Collections;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.function.Consumer;
-import java.util.function.Function;
-import java.util.function.Supplier;
+import java.util.function.*;
 
 /**
  *
  */
 public interface IDco extends Iterable<IDco>, Supplier<Object>, Consumer<Object> {
+
+    public enum VisitResult {
+        CONTINUE,
+        SKIP_SUBTREE,
+        STOP
+    }
 
     // Attrs
     /** Аттрибуты узла */
@@ -190,4 +194,59 @@ public interface IDco extends Iterable<IDco>, Supplier<Object>, Consumer<Object>
 
     /** */
     default int count( String xpath ) { throw new UnsupportedOperationException("'count' not supported"); };
+
+    /** */
+    default VisitResult applyVisitor( BiFunction<IDco, Integer, VisitResult> visitor )
+    {
+        Objects.requireNonNull(visitor, "'visitor' is null");
+
+        VisitResult result = visitor.apply(this, 0);
+
+        if( result == null )
+            result = VisitResult.CONTINUE;
+
+        if( result == VisitResult.STOP )
+            return VisitResult.STOP;
+
+        if( result == VisitResult.SKIP_SUBTREE )
+            return VisitResult.CONTINUE;
+
+        return applyVisitorChildren(this, 1, visitor);
+    }
+
+    /** */
+    default IDco applyVisitor(BiConsumer<IDco, Integer> visitor) {
+
+        Objects.requireNonNull(visitor, "'visitor' is null");
+
+        applyVisitor((dco, level) -> {
+            visitor.accept(dco, level);
+            return VisitResult.CONTINUE;
+        });
+
+        return this;
+    }
+
+    /** */
+    static VisitResult applyVisitorChildren( IDco parent, int level, BiFunction<IDco, Integer, VisitResult> visitor )
+    {
+        for( IDco child : parent )
+        {
+            VisitResult result = visitor.apply(child, level);
+
+            if( result == null )
+                result = VisitResult.CONTINUE;
+
+            if( result == VisitResult.STOP )
+                return VisitResult.STOP;
+
+            if( result != VisitResult.SKIP_SUBTREE ) {
+                result = applyVisitorChildren(child, level + 1, visitor);
+                if( result == VisitResult.STOP )
+                    return VisitResult.STOP;
+            }
+        }
+
+        return VisitResult.CONTINUE;
+    }
 }
