@@ -7,6 +7,7 @@ import ru.inversion.utils.converter.TypeConverter;
 import java.io.*;
 import java.nio.charset.Charset;
 import java.util.Collections;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -163,6 +164,26 @@ public interface IDco extends Iterable<IDco>, Supplier<Object>, Consumer<Object>
 
     /** */
     default boolean setIfPresent( String name, Object value ){ return false; }
+
+    /**
+     * Возвращает значение существующего direct child или attribute.
+     * <p>
+     * Имя с префиксом '@' трактуется как attribute.
+     * Метод не создает child/attribute и не выполняет глубокий поиск.
+     *
+     * @return значение найденного узла/атрибута или null, если имя пустое,
+     *         узел не найден, либо найденный узел содержит null-значение.
+     *         Для различения "не найден" и "значение null" используйте
+     *         hasItem(String) / hasAttribute(String).
+     */
+    default Object  getIfPresent( String name ){ return null; }
+
+    /** */
+    default <T> T getIfPresent(String name, Class<T> valueClass) {
+        Objects.requireNonNull(valueClass, "'valueClass' is null");
+        Object value = getIfPresent(name);
+        return value == null ? null : TypeConverter.convert(value, valueClass);
+    }
 
     /** */
     default boolean setIfExists ( String xpath,Object value ){ return false; }

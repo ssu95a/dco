@@ -635,6 +635,7 @@ public class Dco implements IDco {
         return dcoValue;
     }
 
+
     /** */
     @Override
     public <T> T value()
@@ -642,6 +643,26 @@ public class Dco implements IDco {
         return (T)get();
     }
 
+
+    /** */
+    @Override
+    public Object getIfPresent(String name) {
+
+        if( S.isNullOrEmpty(name) )
+            return null;
+
+        if( name.charAt(0) == '@' )
+        {
+            org.w3c.dom.Attr attr = element.getAttributeNode(name.substring(1));
+            return attr == null ? null : attr.getValue();
+        }
+
+        final Element item = getItem(name, false);
+        return item == null ? null : dco(item).get();
+    }
+
+
+    /** */
     @Override
     public boolean setIfPresent( String name, Object value )
     {
