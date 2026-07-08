@@ -207,9 +207,10 @@ public class Dco implements IDco {
             return attr.getValue();
         }
 
+        // public Iterator<IDco> iterator() { return Collections.<IDco>singletonList(this).iterator(); }
         @Override
         public Iterator<IDco> iterator() {
-            return Collections.<IDco>singletonList(this).iterator();
+            return Collections.emptyIterator();
         }
     }
 
