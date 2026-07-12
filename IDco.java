@@ -50,6 +50,8 @@ public interface IDco extends Iterable<IDco>, Supplier<Object>, Consumer<Object>
     /** */
     default boolean hasItem( String name ) { return false; }
 
+    boolean hasItems( );
+
     /** */
     default IDco append( String name ){ throw new UnsupportedOperationException("'e' not supported"); }
 
@@ -170,7 +172,7 @@ public interface IDco extends Iterable<IDco>, Supplier<Object>, Consumer<Object>
     default boolean setIfPresent( String name, Object value ){ return false; }
 
     /**
-     * Возвращает значение существующего direct child или attribute.
+     * <h6>Возвращает значение существующего direct child или attribute.</h6>
      * <p>
      * Имя с префиксом '@' трактуется как attribute.
      * Метод не создает child/attribute и не выполняет глубокий поиск.

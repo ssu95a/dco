@@ -184,6 +184,11 @@ public class Dco implements IDco {
         }
 
         @Override
+        public boolean hasItems() {
+            return false;
+        }
+
+        @Override
         public boolean isNull() {
             return get() == null;
         }
@@ -841,7 +846,7 @@ public class Dco implements IDco {
     public void saveJson( OutputStream stream )
     {
         try {
-            JsonHelper.saveXml( element, stream, true );
+            JsonSupport.write( this, stream, true );
         }
         catch (Throwable th) {
             throw new DcoException( Tags.PRODUCT_LABEL + "Error on save JSON", th );
@@ -863,7 +868,7 @@ public class Dco implements IDco {
     @Override
     public void saveJson( Writer writer ) {
         try {
-            JsonHelper.saveXml( element, writer, true );
+            JsonSupport.write( this, writer, true );
         }
         catch (Throwable th) {
             throw new DcoException( Tags.PRODUCT_LABEL + "Error on save JSON", th );
@@ -1069,40 +1074,27 @@ public class Dco implements IDco {
         return parseIniFile(new File(iniFile), v);
     }
 
-    /** Парсинг JSON и преобразование в XML
+    /** Парсинг JSON и преобразование в XML */
     private static IDco parseJsonImpl(Object source)
     {
         try {
 
-            ObjectMapper jsonMapper = getJsonMapper();
-            ObjectMapper xmlMapper  = getXmlMapper();
-
-            JsonNode jsonNode;
             if (source instanceof String) {
-                jsonNode = jsonMapper.readTree((String) source);
-            } else if (source instanceof Reader) {
-                jsonNode = jsonMapper.readTree((Reader) source);
-            } else if (source instanceof InputStream) {
-                jsonNode = jsonMapper.readTree((InputStream) source);
-            } else if (source instanceof File) {
-                jsonNode = jsonMapper.readTree((File) source);
-            } else if (source instanceof byte[]) {
-                jsonNode = jsonMapper.readTree((byte[]) source);
-            } else if (source instanceof URL) {
-                jsonNode = jsonMapper.readTree((URL) source);
-            } else {
-                throw new IllegalArgumentException("Load JSON from " + source.getClass() + " not supported");
-            }
-
-            // Конвертируем JSON в XML
-            try( SegmentedBAOS w = new SegmentedBAOS(1024) )
+                return JsonSupport.read(new StringReader((String)source));
+            } else if ( source instanceof Reader ) {
+                return JsonSupport.read((Reader)source );
+            } else if ( source instanceof InputStream) {
+                return JsonSupport.read((InputStream)source );
+            } else if ( source instanceof File)
             {
-                xmlMapper.writeValue( w, jsonNode );
-
-                try(InputStream is = w.inputStream() )
-                {
-                    return parseXml(is);
+                try( Reader r = Files.newBufferedReader( ((File)source).toPath()) ) {
+                    return JsonSupport.read(r);
                 }
+            } else if (source instanceof byte[] ) {
+                return JsonSupport.read(new ByteArrayInputStream((byte[]) source));
+            }
+            else {
+                throw new IllegalArgumentException("Load JSON from " + source.getClass() + " not supported");
             }
 
         } catch (Throwable th) {
@@ -1133,5 +1125,5 @@ public class Dco implements IDco {
     public static IDco parseJson(byte[] jsonBytes) {
         return parseJsonImpl(jsonBytes);
     }
-    */
+
 }
