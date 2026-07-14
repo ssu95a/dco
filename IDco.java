@@ -3,8 +3,10 @@ package ru.inversion.utils.dco;
 import ru.inversion.utils.U;
 import ru.inversion.utils.converter.TypeConverter;
 
-//import javax.xml.transform.stream.StreamResult;
+import javax.xml.transform.Source;
+import javax.xml.transform.stream.StreamSource;
 import java.io.*;
+import java.net.URL;
 import java.nio.charset.Charset;
 import java.util.Collections;
 import java.util.Objects;
@@ -22,8 +24,7 @@ public interface IDco extends Iterable<IDco>, Supplier<Object>, Consumer<Object>
         STOP
     }
 
-    // Attrs
-    /** Аттрибуты узла */
+    /** Атрибуты узла */
     default Iterable< IDco > attributes() {
         return U.iterable( Collections.emptyIterator() );
     }
@@ -41,7 +42,7 @@ public interface IDco extends Iterable<IDco>, Supplier<Object>, Consumer<Object>
     default IDco removeAttribute( String... names ) { throw new UnsupportedOperationException("'removeAttribute' not supported"); }
 
     /** */
-    default IDco removeAttributes()  { throw new UnsupportedOperationException("'removeAttributes' not supported"); }
+    default IDco removeAttributes() { throw new UnsupportedOperationException("'removeAttributes' not supported"); }
 
     // Items
     /** */
@@ -50,7 +51,8 @@ public interface IDco extends Iterable<IDco>, Supplier<Object>, Consumer<Object>
     /** */
     default boolean hasItem( String name ) { return false; }
 
-    boolean hasItems( );
+    /** */
+    default boolean hasItems( ) { return false; }
 
     /** */
     default IDco append( String name ){ throw new UnsupportedOperationException("'e' not supported"); }
@@ -120,16 +122,16 @@ public interface IDco extends Iterable<IDco>, Supplier<Object>, Consumer<Object>
     default byte[] asXmlBytes(Charset charset ){ throw new UnsupportedOperationException("'asBytes' not supported"); }
 
     /*** Сохранение в JSON */
-    default void saveJson(File fileTo) { throw new UnsupportedOperationException("'saveJson' not supported"); }
+    default void saveJson( File fileTo ) { throw new UnsupportedOperationException("'saveJson' not supported"); }
 
     /** Сохранение в Writer */
-    default void saveJson(Writer wTo ) { throw new UnsupportedOperationException("'saveJson' not supported"); }
+    default void saveJson( Writer wTo ) { throw new UnsupportedOperationException("'saveJson' not supported"); }
 
     /** Сохранение в OutputStream */
-    default void saveJson(OutputStream stream) { throw new UnsupportedOperationException("'saveJson' not supported"); }
+    default void saveJson( OutputStream stream ) { throw new UnsupportedOperationException("'saveJson' not supported"); }
 
     /** Получение JSON строки */
-    default String asJson() { throw new UnsupportedOperationException("'asJson' not supported"); }
+    default String asJson( ) { throw new UnsupportedOperationException("'asJson' not supported"); }
 
     /** Получение JSON в виде байтов */
     default byte[] asJsonBytes() { throw new UnsupportedOperationException("'asJsonBytes' not supported"); }
@@ -192,7 +194,7 @@ public interface IDco extends Iterable<IDco>, Supplier<Object>, Consumer<Object>
     }
 
     /** */
-    default boolean setIfExists ( String xpath,Object value ){ return false; }
+    default boolean setIfExists( String xpath,Object value ){ return false; }
 
     /** */
     default int count( String xpath ) { throw new UnsupportedOperationException("'count' not supported"); };
@@ -200,9 +202,9 @@ public interface IDco extends Iterable<IDco>, Supplier<Object>, Consumer<Object>
     /** */
     default VisitResult applyVisitor( BiFunction<IDco, Integer, VisitResult> visitor )
     {
-        Objects.requireNonNull(visitor, "'visitor' is null");
+        Objects.requireNonNull( visitor, "'visitor' is null" );
 
-        VisitResult result = visitor.apply(this, 0);
+        VisitResult result = visitor.apply( this, 0 );
 
         if( result == null )
             result = VisitResult.CONTINUE;
@@ -213,13 +215,13 @@ public interface IDco extends Iterable<IDco>, Supplier<Object>, Consumer<Object>
         if( result == VisitResult.SKIP_SUBTREE )
             return VisitResult.CONTINUE;
 
-        return applyVisitorChildren(this, 1, visitor);
+        return applyVisitorChildren( this, 1, visitor );
     }
 
     /** */
-    default IDco applyVisitor(BiConsumer<IDco, Integer> visitor) {
+    default IDco applyVisitor( BiConsumer<IDco, Integer> visitor ) {
 
-        Objects.requireNonNull(visitor, "'visitor' is null");
+        Objects.requireNonNull( visitor, "'visitor' is null");
 
         applyVisitor((dco, level) -> {
             visitor.accept(dco, level);
@@ -234,7 +236,7 @@ public interface IDco extends Iterable<IDco>, Supplier<Object>, Consumer<Object>
     {
         for( IDco child : parent )
         {
-            VisitResult result = visitor.apply(child, level);
+            VisitResult result = visitor.apply( child, level );
 
             if( result == null )
                 result = VisitResult.CONTINUE;
@@ -242,7 +244,8 @@ public interface IDco extends Iterable<IDco>, Supplier<Object>, Consumer<Object>
             if( result == VisitResult.STOP )
                 return VisitResult.STOP;
 
-            if( result != VisitResult.SKIP_SUBTREE ) {
+            if( result != VisitResult.SKIP_SUBTREE )
+            {
                 result = applyVisitorChildren(child, level + 1, visitor);
                 if( result == VisitResult.STOP )
                     return VisitResult.STOP;
@@ -251,4 +254,44 @@ public interface IDco extends Iterable<IDco>, Supplier<Object>, Consumer<Object>
 
         return VisitResult.CONTINUE;
     }
-}
+
+    /** Преобразование текущего DCO через XSLT. Возвращает новый DCO. */
+    default IDco transform(Source xslt) {
+        throw new UnsupportedOperationException("'transform' not supported");
+    }
+
+    /** */
+    default IDco transform(Reader xslt) {
+        Objects.requireNonNull(xslt, "'xslt' is null");
+        return transform(new StreamSource(xslt));
+    }
+
+    /** */
+    default IDco transform(InputStream xslt) {
+        Objects.requireNonNull(xslt, "'xslt' is null");
+        return transform(new StreamSource(xslt));
+    }
+
+    /** */
+    default IDco transform(File xsltFile) {
+        Objects.requireNonNull(xsltFile, "'xsltFile' is null");
+        return transform(new StreamSource(xsltFile));
+    }
+
+    /** */
+    default IDco transform(URL xsltUrl) {
+
+        Objects.requireNonNull(xsltUrl, "'xsltUrl' is null");
+
+        try( InputStream is = xsltUrl.openStream() ) {
+            return transform(is);
+        }
+        catch( Throwable th ) {
+            throw new DcoException("Error on open XSLT url: " + xsltUrl, th);
+        }
+    }
+
+    /** Возвращает новый DCO без namespace prefixes/declarations. */
+    default IDco withoutNamespaces() {
+        throw new UnsupportedOperationException("'withoutNamespaces' not supported");
+    }}

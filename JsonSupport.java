@@ -4,8 +4,6 @@ import javax.json.*;
 import javax.json.stream.JsonGenerator;
 import javax.json.stream.JsonGeneratorFactory;
 
-import org.w3c.dom.*;
-
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.Reader;
@@ -19,57 +17,59 @@ class JsonSupport {
     private static final String ATTR_PREFIX = "@";
     private static final String VALUE_KEY   = "#value";
 
+    static final private Map<String, Object> prettyFlag = Collections.singletonMap(JsonGenerator.PRETTY_PRINTING, Boolean.TRUE);
+
     static void write( IDco dco, Writer writer, boolean pretty )
     {
-        Objects.requireNonNull( dco, "'dco' is null");
-        Objects.requireNonNull( writer, "'writer' is null");
+        Objects.requireNonNull( dco,    "[JSON] 'dco' is null" );
+        Objects.requireNonNull( writer, "[JSON] 'writer' is null");
 
-        JsonGeneratorFactory factory = Json.createGeneratorFactory (
-                pretty ? Collections.<String, Object>singletonMap(JsonGenerator.PRETTY_PRINTING, Boolean.TRUE)
-                        : Collections.emptyMap()
-        );
+        final JsonGeneratorFactory factory = Json.createGeneratorFactory ( pretty ? prettyFlag : Collections.emptyMap() );
 
-        try( JsonGenerator gen = factory.createGenerator(writer) ) {
-            gen.writeStartObject();
-            writeProperty(gen, dco.getName(), dco);
-            gen.writeEnd();
-            gen.flush();
+        try( JsonGenerator gen = factory.createGenerator(writer) )
+        {
+              gen.writeStartObject();
+              writeNode( gen, dco.getName(), dco );
+              gen.writeEnd();
+              gen.flush();
         }
         catch( Throwable th ) {
-            throw new DcoException("Error on write DCO as JSON", th);
+            throw new DcoException( "[JSON] Error on write DCO as JSON", th );
         }
     }
 
-    static void write(IDco dco, OutputStream stream, boolean pretty) {
-        Objects.requireNonNull(dco, "'dco' is null");
-        Objects.requireNonNull(stream, "'stream' is null");
+    /** */
+    static void write( IDco dco, OutputStream stream, boolean pretty )
+    {
+        Objects.requireNonNull( dco,    "[JSON] 'dco' is null" );
+        Objects.requireNonNull( stream, "[JSON] 'stream' is null" );
 
-        JsonGeneratorFactory factory = Json.createGeneratorFactory(
-                pretty ? Collections.<String, Object>singletonMap(JsonGenerator.PRETTY_PRINTING, Boolean.TRUE)
-                        : Collections.emptyMap()
-        );
+        JsonGeneratorFactory factory = Json.createGeneratorFactory( pretty ? prettyFlag : Collections.emptyMap() );
 
         try( JsonGenerator gen = factory.createGenerator(stream) ) {
             gen.writeStartObject();
-            writeProperty(gen, dco.getName(), dco);
+            writeNode(gen, dco.getName(), dco);
             gen.writeEnd();
             gen.flush();
         }
         catch( Throwable th ) {
-            throw new DcoException("Error on write DCO as JSON", th);
+            throw new DcoException("[JSON] Error on write DCO as JSON", th);
         }
     }
 
 
-    static IDco read(Reader reader) {
-        Objects.requireNonNull(reader, "'reader' is null");
+    /** */
+    static IDco read(Reader reader)
+    {
+        Objects.requireNonNull( reader, "'reader' is null" );
 
-        try( JsonReader jsonReader = Json.createReader(reader) ) {
-            JsonValue value = jsonReader.readValue();
-            return readRoot(value);
+        try( JsonReader jsonReader = Json.createReader(reader) )
+        {
+             JsonValue value = jsonReader.readValue();
+             return readRoot(value);
         }
         catch( Throwable th ) {
-            throw new DcoException("Error on read DCO from JSON", th);
+            throw new DcoException("[JSON] Error on read DCO from JSON", th);
         }
     }
 
@@ -81,7 +81,7 @@ class JsonSupport {
             return readRoot(value);
         }
         catch( Throwable th ) {
-            throw new DcoException("Error on read DCO from JSON", th);
+            throw new DcoException("[JSON] Error on read DCO from JSON", th);
         }
     }
 
@@ -95,7 +95,7 @@ class JsonSupport {
             return root;
         }
         catch( Throwable th ) {
-            throw new DcoException("Error on read DCO from JSON", th);
+            throw new DcoException("[JSON] Error on read DCO from JSON", th);
         }
     }
 
@@ -109,11 +109,12 @@ class JsonSupport {
             return root;
         }
         catch( Throwable th ) {
-            throw new DcoException("Error on read DCO from JSON", th);
+            throw new DcoException("[JSON] Error on read DCO from JSON", th);
         }
     }
 
-    private static void writeProperty( JsonGenerator gen, String name, IDco node )
+    /** */
+    private static void writeNode( JsonGenerator gen, String name, IDco node )
     {
         boolean hasAttributes = node.hasAttributes();
         boolean hasChildren   = node.hasItems();
@@ -130,7 +131,8 @@ class JsonSupport {
 
 
     /** */
-    private static void writeArrayItem(JsonGenerator gen, IDco node) {
+    private static void writeArrayItem( JsonGenerator gen, IDco node )
+    {
 
         boolean hasAttributes = node.hasAttributes();
         boolean hasChildren   = node.hasItems();
@@ -147,30 +149,32 @@ class JsonSupport {
 
 
     /** */
-    private static void writeNodeContent(JsonGenerator gen, IDco node) {
+    private static void writeNodeContent( JsonGenerator gen, IDco node)
+    {
+        writeAttributes( gen, node );
 
-        writeAttributes(gen, node);
-
-        Object value = node.get();
+        Object value = node.get( );
 
         if( value != null )
-            writeScalar(gen, VALUE_KEY, value);
+            writeScalar( gen, VALUE_KEY, value );
 
-        Map<String, List<IDco>> groups = groupChildren(node);
+        Map<String, List<IDco>> groups = groupChildren( node );
 
-        for( Map.Entry<String, List<IDco>> entry : groups.entrySet() ) {
-
+        for( Map.Entry<String, List<IDco>> entry : groups.entrySet() )
+        {
             String childName = entry.getKey();
             List<IDco> list = entry.getValue();
 
-            if( list.size() == 1 ) {
-                writeProperty(gen, childName, list.get(0));
+            if( list.size() == 1 )
+            {
+                writeNode( gen, childName, list.get(0) );
             }
-            else {
+            else
+            {
                 gen.writeStartArray(childName);
 
                 for( IDco child : list )
-                    writeArrayItem(gen, child);
+                     writeArrayItem(gen, child);
 
                 gen.writeEnd();
             }
@@ -180,9 +184,8 @@ class JsonSupport {
     /** */
     private static void writeAttributes(JsonGenerator gen, IDco node) {
         for( IDco attr : node.attributes() )
-            writeScalar(gen, ATTR_PREFIX + attr.getName(), attr.get());
+             writeScalar( gen, ATTR_PREFIX + attr.getName(), attr.get() );
     }
-
 
     /** */
     private static Map<String, List<IDco>> groupChildren(IDco node) {
@@ -311,12 +314,12 @@ class JsonSupport {
     private static IDco readRoot(JsonValue value) {
 
         if( value == null || value.getValueType() != JsonValue.ValueType.OBJECT )
-            throw new DcoException("Root JSON value must be object with single root field");
+            throw new DcoException("[JSON] Root JSON value must be object with single root field");
 
         JsonObject object = value.asJsonObject();
 
         if( object.size() != 1 )
-            throw new DcoException("Root JSON object must contain exactly one root field");
+            throw new DcoException("[JSON] Root JSON object must contain exactly one root field");
 
         Map.Entry<String, JsonValue> rootEntry = object.entrySet().iterator().next();
 
@@ -344,7 +347,7 @@ class JsonSupport {
                 return;
 
             case ARRAY:
-                throw new DcoException("Unexpected JSON array for node: " + node.getName());
+                throw new DcoException("[JSON] Unexpected JSON array for node: " + node.getName());
 
             case STRING:
             case NUMBER:
@@ -355,7 +358,7 @@ class JsonSupport {
                 return;
 
             default:
-                throw new DcoException("Unsupported JSON value type: " + value.getValueType());
+                throw new DcoException("[JSON] Unsupported JSON value type: " + value.getValueType());
         }
     }
 
@@ -382,7 +385,7 @@ class JsonSupport {
             }
 
             if( name.startsWith("#") )
-                throw new DcoException("Unsupported reserved JSON field: " + name);
+                throw new DcoException("[JSON] Unsupported reserved JSON field: " + name);
 
             validateNodeName(name);
 
@@ -401,7 +404,7 @@ class JsonSupport {
         for( JsonValue item : array ) {
 
             if( item != null && item.getValueType() == JsonValue.ValueType.ARRAY )
-                throw new DcoException("Nested JSON arrays are not supported for field: " + name);
+                throw new DcoException("[JSON] Nested JSON arrays are not supported for field: " + name);
 
             IDco child = parent.append(name);
             readValueInto(child, item);
@@ -424,10 +427,10 @@ class JsonSupport {
 
             case OBJECT:
             case ARRAY:
-                throw new DcoException("JSON field '" + fieldName + "' must be scalar");
+                throw new DcoException("[JSON] JSON field '" + fieldName + "' must be scalar");
 
             default:
-                throw new DcoException("Unsupported JSON value type: " + value.getValueType());
+                throw new DcoException("[JSON] Unsupported JSON value type: " + value.getValueType());
         }
     }
 
@@ -436,7 +439,7 @@ class JsonSupport {
         Object scalar = toNullableScalar(value, fieldName);
 
         if( scalar == null )
-            throw new DcoException("JSON field '" + fieldName + "' must not be null");
+            throw new DcoException("[JSON] JSON field '" + fieldName + "' must not be null");
 
         return scalar;
     }
@@ -464,7 +467,7 @@ class JsonSupport {
                 return null;
 
             default:
-                throw new DcoException("JSON value must be scalar: " + value.getValueType());
+                throw new DcoException("[JSON] JSON value must be scalar: " + value.getValueType());
         }
     }
 
@@ -472,25 +475,25 @@ class JsonSupport {
     private static void validateNodeName(String name) {
 
         if( name == null || name.length() == 0 )
-            throw new DcoException("JSON field name is empty");
+            throw new DcoException("[JSON] JSON field name is empty");
 
         if( name.startsWith(ATTR_PREFIX) )
-            throw new DcoException("Node name must not start with '@': " + name);
+            throw new DcoException("[JSON] Node name must not start with '@': " + name);
 
         if( name.startsWith("#") )
-            throw new DcoException("Node name uses reserved prefix '#': " + name);
+            throw new DcoException("[JSON] Node name uses reserved prefix '#': " + name);
     }
 
     private static void validateAttributeName(String name) {
 
         if( name == null || name.length() == 0 )
-            throw new DcoException("JSON attribute name is empty");
+            throw new DcoException("[JSON] JSON attribute name is empty");
 
         if( name.startsWith(ATTR_PREFIX) )
-            throw new DcoException("Attribute name must not start with '@': " + name);
+            throw new DcoException("[JSON] Attribute name must not start with '@': " + name);
 
         if( name.startsWith("#") )
-            throw new DcoException("Attribute name uses reserved prefix '#': " + name);
+            throw new DcoException("[JSON] Attribute name uses reserved prefix '#': " + name);
     }
 }
 

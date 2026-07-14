@@ -15,9 +15,7 @@ import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.transform.OutputKeys;
-import javax.xml.transform.Transformer;
-import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.*;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 import javax.xml.xpath.XPath;
@@ -34,6 +32,10 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import javax.xml.transform.OutputKeys;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.Source;
 
 import static org.w3c.dom.Node.*;
 
@@ -181,11 +183,6 @@ public class Dco implements IDco {
         @Override
         public String getName() {
             return attr.getName();
-        }
-
-        @Override
-        public boolean hasItems() {
-            return false;
         }
 
         @Override
@@ -788,7 +785,7 @@ public class Dco implements IDco {
         try {
 
             final DOMSource dom = new DOMSource(element);
-            final TransformerFactory tf = TransformerFactory.newInstance();
+            final TransformerFactory tf = transformerFactory();
             try {
                 tf.setFeature  (XMLConstants.FEATURE_SECURE_PROCESSING, true);
                 tf.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
@@ -906,8 +903,10 @@ public class Dco implements IDco {
 
         final Document doc = documentBuilder().parse(isrc);
 
-        if( doc != null ) {
+        if( doc != null )
+        {
             doc.normalize();
+            removeBlankTextNodes( doc.getDocumentElement() );
             return new Dco( doc.getDocumentElement() );
         }
 
@@ -1079,21 +1078,36 @@ public class Dco implements IDco {
     {
         try {
 
-            if (source instanceof String) {
-                return JsonSupport.read(new StringReader((String)source));
-            } else if ( source instanceof Reader ) {
-                return JsonSupport.read((Reader)source );
-            } else if ( source instanceof InputStream) {
-                return JsonSupport.read((InputStream)source );
-            } else if ( source instanceof File)
+            if( source instanceof String )
             {
-                try( Reader r = Files.newBufferedReader( ((File)source).toPath()) ) {
+                return JsonSupport.read(new StringReader((String)source));
+            }
+            else if ( source instanceof Reader )
+            {
+                return JsonSupport.read((Reader)source );
+            }
+            else if ( source instanceof InputStream)
+            {
+                return JsonSupport.read((InputStream)source );
+            }
+            else if ( source instanceof File)
+            {
+                try (Reader r = Files.newBufferedReader(((File) source).toPath())) {
                     return JsonSupport.read(r);
                 }
-            } else if (source instanceof byte[] ) {
+            }
+            else if( source instanceof URL )
+            {
+                try( InputStream is = ((URL)source).openStream() ) {
+                     return JsonSupport.read(is);
+                }
+            }
+            else if (source instanceof byte[] )
+            {
                 return JsonSupport.read(new ByteArrayInputStream((byte[]) source));
             }
-            else {
+            else
+            {
                 throw new IllegalArgumentException("Load JSON from " + source.getClass() + " not supported");
             }
 
@@ -1124,6 +1138,128 @@ public class Dco implements IDco {
 
     public static IDco parseJson(byte[] jsonBytes) {
         return parseJsonImpl(jsonBytes);
+    }
+
+    public static IDco parseJson(String rootName, String json) {
+        return JsonSupport.read(rootName, new StringReader(json));
+    }
+
+    public static IDco parseJson(String rootName, Reader reader) {
+        return JsonSupport.read(rootName, reader);
+    }
+
+    public static IDco parseJson(String rootName, InputStream inputStream) {
+        return JsonSupport.read(rootName, inputStream);
+    }
+
+    public static IDco parseJson(String rootName, File file) {
+        try( Reader r = Files.newBufferedReader(Objects.requireNonNull(file, "'file' is null").toPath()) ) {
+            return JsonSupport.read(rootName, r);
+        }
+        catch( Throwable th ) {
+            throw new DcoException(Tags.PRODUCT_LABEL + "Error on load JSON from file " + file, th);
+        }
+    }
+
+    public static IDco parseJson(String rootName, URL url) {
+        Objects.requireNonNull(url, "'url' is null");
+
+        try( InputStream is = url.openStream() ) {
+            return JsonSupport.read(rootName, is);
+        }
+        catch( Throwable th ) {
+            throw new DcoException(Tags.PRODUCT_LABEL + "Error on load JSON from url " + url, th);
+        }
+    }
+
+    public static IDco parseJson(String rootName, byte[] jsonBytes) {
+        return JsonSupport.read(rootName, new ByteArrayInputStream(Objects.requireNonNull(jsonBytes, "'jsonBytes' is null")));
+    }
+
+    private static void removeBlankTextNodes(Node node) {
+
+        for( Node child = node.getFirstChild(); child != null; )
+        {
+            Node next = child.getNextSibling();
+
+            if( child.getNodeType() == Node.TEXT_NODE && isBlank(child.getNodeValue()) )
+            {
+                node.removeChild(child);
+            }
+            else if( child.getNodeType() == Node.ELEMENT_NODE )
+            {
+                removeBlankTextNodes(child);
+            }
+
+            child = next;
+        }
+    }
+
+    /** */
+    private static boolean isBlank( CharSequence value )
+    {
+        if( value == null )
+            return true;
+
+        for( int i = 0; i < value.length(); i++ )
+        {
+            if( !Character.isWhitespace(value.charAt(i)) )
+                 return false;
+        }
+
+        return true;
+    }
+
+
+    @Override
+    public IDco transform(Source xslt) {
+        return transform(this, xslt);
+    }
+
+
+    private static TransformerFactory transformerFactory() {
+
+        final TransformerFactory tf = TransformerFactory.newInstance();
+
+        try {
+            tf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+        }
+        catch( Exception ignored ) {
+        }
+
+        try {
+            tf.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
+        }
+        catch( Exception ignored ) {
+        }
+
+        try {
+            tf.setAttribute(XMLConstants.ACCESS_EXTERNAL_STYLESHEET, "");
+        }
+        catch( Exception ignored ) {
+        }
+
+        return tf;
+    }
+
+
+    public static IDco transform( IDco source, Source xslt )
+    {
+        Objects.requireNonNull( source, "'source' is null");
+        Objects.requireNonNull( xslt, "'xslt' is null");
+
+        try( ByteArrayOutputStream out = new ByteArrayOutputStream() ) {
+
+            TransformerFactory factory = transformerFactory();
+            Transformer transformer = factory.newTransformer(xslt);
+
+            transformer.transform( new DOMSource(((Dco)source).element), new StreamResult(out) );
+
+            return parseXml(new ByteArrayInputStream(out.toByteArray()));
+        }
+        catch( Throwable th ) {
+            throw new DcoException(Tags.PRODUCT_LABEL + "Error on XSLT transform", th);
+        }
     }
 
 }
