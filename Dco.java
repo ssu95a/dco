@@ -18,6 +18,7 @@ import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.*;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
+import javax.xml.transform.stream.StreamSource;
 import javax.xml.xpath.XPath;
 import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathExpression;
@@ -40,6 +41,8 @@ import javax.xml.transform.Source;
 import static org.w3c.dom.Node.*;
 
 public class Dco implements IDco {
+
+    private static final String STRIP_NAMESPACES_XSLT_RESOURCE = "/ru/inversion/utils/dco/strip-namespaces.xsl";
 
     /** */
     static private final IConverter<Object,String> STRING_CONVERTER = new IConverter< Object, String >() {
@@ -114,6 +117,32 @@ public class Dco implements IDco {
             throw new DcoException( Tags.PRODUCT_LABEL + "Error on create 'DocumentBuilder'", ex );
         }
     }
+
+    private static TransformerFactory transformerFactory( ) {
+
+        final TransformerFactory tf = TransformerFactory.newInstance();
+
+        try {
+            tf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+        }
+        catch( Exception ignored ) {
+        }
+
+        try {
+            tf.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
+        }
+        catch( Exception ignored ) {
+        }
+
+        try {
+            tf.setAttribute(XMLConstants.ACCESS_EXTERNAL_STYLESHEET, "");
+        }
+        catch( Exception ignored ) {
+        }
+
+        return tf;
+    }
+
 
     // XPath
     static final private Map<String, XPathExpression > cacheXExpr = new ConcurrentHashMap<>();
@@ -786,12 +815,6 @@ public class Dco implements IDco {
 
             final DOMSource dom = new DOMSource(element);
             final TransformerFactory tf = transformerFactory();
-            try {
-                tf.setFeature  (XMLConstants.FEATURE_SECURE_PROCESSING, true);
-                tf.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
-                tf.setAttribute(XMLConstants.ACCESS_EXTERNAL_STYLESHEET, "");
-            } catch (Exception ignored) {}
-
             final Transformer transformer = tf.newTransformer();
 
             // transformer.setOutputProperty(OutputKeys.INDENT, "yes");
@@ -1217,48 +1240,46 @@ public class Dco implements IDco {
     }
 
 
-    private static TransformerFactory transformerFactory() {
-
-        final TransformerFactory tf = TransformerFactory.newInstance();
-
-        try {
-            tf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
-        }
-        catch( Exception ignored ) {
-        }
-
-        try {
-            tf.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
-        }
-        catch( Exception ignored ) {
-        }
-
-        try {
-            tf.setAttribute(XMLConstants.ACCESS_EXTERNAL_STYLESHEET, "");
-        }
-        catch( Exception ignored ) {
-        }
-
-        return tf;
-    }
-
-
+    /** */
     public static IDco transform( IDco source, Source xslt )
     {
         Objects.requireNonNull( source, "'source' is null");
         Objects.requireNonNull( xslt, "'xslt' is null");
+        if( !(source instanceof Dco) )
+            throw new DcoException(Tags.PRODUCT_LABEL + "XSLT transform supports only Dco instances");
+        Dco dco = (Dco)source;
 
         try( ByteArrayOutputStream out = new ByteArrayOutputStream() ) {
 
             TransformerFactory factory = transformerFactory();
             Transformer transformer = factory.newTransformer(xslt);
 
-            transformer.transform( new DOMSource(((Dco)source).element), new StreamResult(out) );
+            transformer.transform( new DOMSource( dco.element ), new StreamResult(out) );
 
             return parseXml(new ByteArrayInputStream(out.toByteArray()));
         }
         catch( Throwable th ) {
             throw new DcoException(Tags.PRODUCT_LABEL + "Error on XSLT transform", th);
+        }
+    }
+
+    @Override
+    public IDco withoutNamespaces( ) {
+
+        URL resource = Dco.class.getResource(STRIP_NAMESPACES_XSLT_RESOURCE);
+
+        if( resource == null )
+            throw new DcoException( Tags.PRODUCT_LABEL + "Resource not found: " + STRIP_NAMESPACES_XSLT_RESOURCE);
+
+        try( InputStream is = resource.openStream() ) {
+
+            StreamSource xslt = new StreamSource(is);
+            xslt.setSystemId(resource.toExternalForm());
+
+            return transform(xslt);
+        }
+        catch( Throwable th ) {
+            throw new DcoException( Tags.PRODUCT_LABEL + "Error on strip namespaces", th );
         }
     }
 

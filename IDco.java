@@ -294,4 +294,5 @@ public interface IDco extends Iterable<IDco>, Supplier<Object>, Consumer<Object>
     /** Возвращает новый DCO без namespace prefixes/declarations. */
     default IDco withoutNamespaces() {
         throw new UnsupportedOperationException("'withoutNamespaces' not supported");
-    }}
+    }
+}
