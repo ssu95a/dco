@@ -534,24 +534,41 @@ public class Dco implements IDco {
             case Node.ATTRIBUTE_NODE:
                 Attr attr = (Attr)node;
                 Element owner = attr.getOwnerElement();
+
                 if( owner == null )
                     return false;
+
                 owner.removeAttributeNode(attr);
                 return true;
 
             case Node.ELEMENT_NODE:
-
                 Object dco = node.getUserData("dco");
+
                 if( dco instanceof Dco )
                     ((Dco)dco).dcoValue = null;
+
                 node.setUserData("dco", null, null);
 
-            // no break !!!
+                Node elementParent = node.getParentNode();
+
+                if( !(elementParent instanceof Element) )
+                    return false;
+
+                elementParent.removeChild(node);
+                return true;
+
             case Node.TEXT_NODE:
             case Node.CDATA_SECTION_NODE:
                 Node parent = node.getParentNode();
+
                 if( !(parent instanceof Element) )
                     return false;
+
+                Object parentDco = parent.getUserData("dco");
+
+                if( parentDco instanceof Dco )
+                    ((Dco)parentDco).dcoValue = null;
+
                 parent.removeChild(node);
                 return true;
 
@@ -561,6 +578,7 @@ public class Dco implements IDco {
     }
 
     /** */
+    @Override
     public int remove( String xpathQuery )
     {
         if( S.isNullOrEmpty(xpathQuery) )
