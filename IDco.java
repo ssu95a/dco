@@ -64,6 +64,9 @@ public interface IDco extends Iterable<IDco>, Supplier<Object>, Consumer<Object>
     default IDco removeAll(){ throw new UnsupportedOperationException("'removeAll' not supported"); }
 
     /** */
+    default int remove( String xpathQuery ) {return 0;};
+
+    /** */
     default Iterable< String > getNamesList() { return U.iterable( Collections.emptyIterator() ); }
 
     /** */

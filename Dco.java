@@ -122,9 +122,9 @@ public class Dco implements IDco {
 
         final TransformerFactory tf = TransformerFactory.newInstance();
 
-        try { tf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true); } catch( Exception ignored ) { }
-        try { tf.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, ""); } catch( Exception ignored ) { }
-        try { tf.setAttribute(XMLConstants.ACCESS_EXTERNAL_STYLESHEET, ""); } catch( Exception ignored ) { }
+        try { tf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING,    true);           } catch( Exception ignored ) { }
+        try { tf.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD,        S.EMPTY_STRING); } catch( Exception ignored ) { }
+        try { tf.setAttribute(XMLConstants.ACCESS_EXTERNAL_STYLESHEET, S.EMPTY_STRING); } catch( Exception ignored ) { }
 
         return tf;
     }
@@ -534,21 +534,24 @@ public class Dco implements IDco {
             case Node.ATTRIBUTE_NODE:
                 Attr attr = (Attr)node;
                 Element owner = attr.getOwnerElement();
-
                 if( owner == null )
                     return false;
-
                 owner.removeAttributeNode(attr);
                 return true;
 
             case Node.ELEMENT_NODE:
+
+                Object dco = node.getUserData("dco");
+                if( dco instanceof Dco )
+                    ((Dco)dco).dcoValue = null;
+                node.setUserData("dco", null, null);
+
+            // no break !!!
             case Node.TEXT_NODE:
             case Node.CDATA_SECTION_NODE:
                 Node parent = node.getParentNode();
-
-                if( parent == null )
+                if( !(parent instanceof Element) )
                     return false;
-
                 parent.removeChild(node);
                 return true;
 
