@@ -122,23 +122,9 @@ public class Dco implements IDco {
 
         final TransformerFactory tf = TransformerFactory.newInstance();
 
-        try {
-            tf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
-        }
-        catch( Exception ignored ) {
-        }
-
-        try {
-            tf.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
-        }
-        catch( Exception ignored ) {
-        }
-
-        try {
-            tf.setAttribute(XMLConstants.ACCESS_EXTERNAL_STYLESHEET, "");
-        }
-        catch( Exception ignored ) {
-        }
+        try { tf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true); } catch( Exception ignored ) { }
+        try { tf.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, ""); } catch( Exception ignored ) { }
+        try { tf.setAttribute(XMLConstants.ACCESS_EXTERNAL_STYLESHEET, ""); } catch( Exception ignored ) { }
 
         return tf;
     }
@@ -535,6 +521,87 @@ public class Dco implements IDco {
         }
 
         throw new DcoException( Tags.PRODUCT_LABEL + "'" + getName() + "' is a root node. And cannot be removed!" );
+    }
+
+    /** */
+    private static boolean removeNode( Node node )
+    {
+        if( node == null )
+            return false;
+
+        switch( node.getNodeType() )
+        {
+            case Node.ATTRIBUTE_NODE:
+                Attr attr = (Attr)node;
+                Element owner = attr.getOwnerElement();
+
+                if( owner == null )
+                    return false;
+
+                owner.removeAttributeNode(attr);
+                return true;
+
+            case Node.ELEMENT_NODE:
+            case Node.TEXT_NODE:
+            case Node.CDATA_SECTION_NODE:
+                Node parent = node.getParentNode();
+
+                if( parent == null )
+                    return false;
+
+                parent.removeChild(node);
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
+    /** */
+    public int remove( String xpathQuery )
+    {
+        if( S.isNullOrEmpty(xpathQuery) )
+            return 0;
+
+        NodeList nodes;
+
+        try {
+
+            final XPathExpression xe = cacheXExpr.computeIfAbsent(xpathQuery, new Function< String, XPathExpression >() {
+                @Override
+                public XPathExpression apply( String query ) {
+                    try {
+                        return xpath().compile(query );
+                    }
+                    catch( Throwable th ) {
+                        throw new DcoException( Tags.PRODUCT_LABEL + "Error on compile xpath expression", th );
+                    }
+                }
+            });
+
+            nodes = (NodeList)xe.evaluate(element, XPathConstants.NODESET);
+
+        }
+        catch( Throwable th ) {
+            throw new DcoException("Error on execute XPath: " + xpathQuery, th);
+        }
+
+        if( nodes == null || nodes.getLength() == 0 )
+            return 0;
+
+        List<Node> list = new ArrayList<>(nodes.getLength());
+
+        for( int i = 0; i < nodes.getLength(); i++ )
+             list.add(nodes.item(i));
+
+        int removed = 0;
+
+        for( Node node : list ) {
+            if( removeNode(node) )
+                removed++;
+        }
+
+        return removed;
     }
 
     /** */
